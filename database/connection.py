@@ -34,6 +34,7 @@ async def init_db_pool():
             min_size=2,
             max_size=20,
             max_inactive_connection_lifetime=300.0
+            ssl="require"
         )
         logger.info("PostgreSQL connection pool initialized successfully.")
         return _pool
