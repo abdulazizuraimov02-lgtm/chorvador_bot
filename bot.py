@@ -11,74 +11,23 @@ from handlers import registration, menu, order, admin
 from utils.logger import logger
 from utils.scheduler import scheduler_loop
 
-# Load environment variables
 dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-    logger.critical("BOT_TOKEN is missing or is set to placeholder in .env file! Please edit C:\\Users\\O'zimniki\\.gemini\\antigravity\\scratch\\dairy_delivery_bot\\.env and set a valid Telegram Bot Token.")
-    print("\n[CRITICAL ERROR] Telegram Bot Tokeni topilmadi yoki .env faylda xato kiritilgan!")
-    print("Iltimos, loyiha papkasidagi '.env' faylini ochib, BOT_TOKEN maydoniga o'z botingiz tokenini yozing.")
-    print("Fayl yo'li: C:\\Users\\O'zimniki\\.gemini\\antigravity\\scratch\\dairy_delivery_bot\\.env\n")
+    logger.critical("BOT_TOKEN topilmadi!")
     import sys
     sys.exit(1)
 
-# Initialize Bot and Dispatcher
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-
-# Background task reference for scheduler
 scheduler_task = None
 
-async def on_startup(bot: Bot):
-    """Actions to run on bot startup."""
-    logger.info("Starting up Telegram Bot...")
-    
-    # 1. Initialize DB Connection Pool
-    try:
-        await init_db_pool()
-        
-        # 2. Check and Create Tables
-        await create_tables()
-    except Exception as e:
-        logger.critical(f"Startup DB initialization failed: {e}")
-        raise e
-        
-    # 3. Start automated report scheduler in background
-    global scheduler_task
-    scheduler_task = asyncio.create_task(scheduler_loop(bot))
-    logger.info("Bot startup sequence completed successfully.")
-
-async def on_shutdown(bot: Bot):
-    """Actions to run on bot shutdown."""
-    logger.info("Shutting down Telegram Bot...")
-    
-    # 1. Cancel background scheduler task
-    global scheduler_task
-    if scheduler_task:
-        logger.info("Cancelling automated scheduler task...")
-        scheduler_task.cancel()
-        try:
-            await scheduler_task
-        except asyncio.CancelledError:
-            logger.info("Scheduler task cancelled successfully.")
-            
-    # 2. Close PostgreSQL connection pool
-    await close_db_pool()
-    logger.info("Bot shutdown sequence completed.")
-
-def register_routers(dp: Dispatcher):
-    """Registers all handler routers to the Dispatcher."""
-    # Note: Order is important! 
-    # Admin handlers should take priority on commands, or Registration handler should filter unregistered users
-    dp.include_router(registration.router)
-    dp.include_router(admin.router)
-    dp.include_router(menu.router)
-    dp.include_router(order.router)
-    logger.info("All routers registered.")
-
+# ============================================================
+# AUTH
+# ============================================================
 import hashlib
 
 def get_auth_token():
@@ -86,115 +35,129 @@ def get_auth_token():
     return hashlib.sha256(pwd.encode()).hexdigest()
 
 def is_authorized(request):
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
         return False
-    token = auth_header.split(" ")[1]
-    return token == get_auth_token()
+    return auth.split(" ")[1] == get_auth_token()
+
+# ============================================================
+# LIFECYCLE
+# ============================================================
+
+async def on_startup(bot: Bot):
+    logger.info("Bot ishga tushmoqda...")
+    try:
+        await init_db_pool()
+        await create_tables()
+    except Exception as e:
+        logger.critical(f"DB xatosi: {e}")
+        raise e
+    global scheduler_task
+    scheduler_task = asyncio.create_task(scheduler_loop(bot))
+    logger.info("Bot muvaffaqiyatli ishga tushdi.")
+
+async def on_shutdown(bot: Bot):
+    logger.info("Bot to'xtatilmoqda...")
+    global scheduler_task
+    if scheduler_task:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
+    await close_db_pool()
+    logger.info("Bot to'xtatildi.")
+
+def register_routers(dp: Dispatcher):
+    dp.include_router(registration.router)
+    dp.include_router(admin.router)
+    dp.include_router(menu.router)
+    dp.include_router(order.router)
+
+# ============================================================
+# API HANDLERS
+# ============================================================
 
 async def handle_health(request):
-    """Simple health check endpoint for Render."""
-    return web.Response(text="Bot is running!")
+    return web.Response(text="OK")
 
 async def api_login(request):
     try:
         data = await request.json()
-        password = data.get("password")
-        expected_pwd = os.getenv("DASHBOARD_PASSWORD", "KiRishgA UrinmA")
-        if password == expected_pwd:
-            logger.info("Web Dashboard login successful.")
+        pwd = data.get("password")
+        if pwd == os.getenv("DASHBOARD_PASSWORD", "KiRishgA UrinmA"):
+            logger.info("Panel kirish: muvaffaqiyatli")
             return web.json_response({"token": get_auth_token()})
-        else:
-            logger.warning("Web Dashboard login failed: incorrect password.")
-            return web.json_response({"error": "Parol noto'g'ri!"}, status=401)
+        logger.warning("Panel kirish: noto'g'ri parol")
+        return web.json_response({"error": "Parol noto'g'ri!"}, status=401)
     except Exception as e:
-        logger.error(f"Error in api_login: {e}")
-        return web.json_response({"error": "Xato so'rov"}, status=400)
+        return web.json_response({"error": str(e)}, status=400)
+
+# --- STATS ---
 
 async def api_get_stats(request):
     if not is_authorized(request):
-        return web.json_response({"error": "Ruxsat berilmagan!"}, status=401)
-    
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
         from database import models
         stats = await models.get_dashboard_stats()
         return web.json_response(stats)
     except Exception as e:
-        logger.error(f"Error in api_get_stats: {e}")
+        logger.error(f"api_get_stats: {e}")
         return web.json_response({"error": str(e)}, status=500)
+
+# --- ORDERS ---
 
 async def api_get_orders(request):
     if not is_authorized(request):
-        return web.json_response({"error": "Ruxsat berilmagan!"}, status=401)
-        
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
         from database import models
         orders = await models.get_dashboard_orders()
         return web.json_response(orders)
     except Exception as e:
-        logger.error(f"Error in api_get_orders: {e}")
+        logger.error(f"api_get_orders: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
 async def api_update_order_status(request):
     if not is_authorized(request):
-        return web.json_response({"error": "Ruxsat berilmagan!"}, status=401)
-        
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
         order_id = int(request.match_info['id'])
         data = await request.json()
         new_status = data.get("status")
-        
+
         from database import models
-        # Fetch user telegram_id first to notify
         db_order = await models.fetch_row(
             "SELECT o.id, u.telegram_id FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = $1;",
             order_id
         )
         if not db_order:
             return web.json_response({"error": "Buyurtma topilmadi!"}, status=404)
-            
+
         await models.update_order_status(order_id, new_status)
-        logger.info(f"API: Order #{order_id} status updated to {new_status}")
-        
-        # Notify user
-        user_tg_id = db_order['telegram_id']
-        status_text_uz = {
-            "confirmed": "Tasdiqlandi ✅",
-            "completed": "Yetkazildi 🚚",
-            "cancelled": "Bekor qilindi ❌"
-        }.get(new_status)
-        
-        notification_text = ""
-        if new_status == "confirmed":
-            notification_text = (
-                f"✅ Sizning #{order_id}-sonli buyurtmangiz tasdiqlandi!\n\n"
-                f"⏰ Yetkazib berish vaqti: 06:30 - 07:30\n"
-                f"Sog'lom va barra mahsulotlar tez orada sizga yetkaziladi."
-            )
-        elif new_status == "completed":
-            notification_text = (
-                f"🚚 Sizning #{order_id}-sonli buyurtmangiz muvaffaqiyatli yetkazildi!\n\n"
-                f"Yoqimli ishtaha!"
-            )
-        elif new_status == "cancelled":
-            notification_text = f"❌ Sizning #{order_id}-sonli buyurtmangiz bekor qilindi."
-            
-        if notification_text:
+
+        # Foydalanuvchini xabardor qil
+        notify_map = {
+            "confirmed": f"✅ #{order_id}-buyurtmangiz tasdiqlandi!\n⏰ Yetkazish: 06:30–07:30",
+            "completed": f"🚚 #{order_id}-buyurtmangiz yetkazildi!\nYoqimli ishtaha!",
+            "cancelled": f"❌ #{order_id}-buyurtmangiz bekor qilindi."
+        }
+        msg = notify_map.get(new_status)
+        if msg:
             try:
-                await bot.send_message(chat_id=user_tg_id, text=notification_text)
-                logger.info(f"API: Notification sent to user {user_tg_id} about Order #{order_id}")
-            except Exception as notify_err:
-                logger.warning(f"API: Could not notify user {user_tg_id}: {notify_err}")
-                
+                await bot.send_message(chat_id=db_order['telegram_id'], text=msg)
+            except Exception as err:
+                logger.warning(f"Xabar yuborishda xato {db_order['telegram_id']}: {err}")
+
         return web.json_response({"success": True})
     except Exception as e:
-        logger.error(f"Error in api_update_order_status: {e}")
+        logger.error(f"api_update_order_status: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
 async def api_order_arrived(request):
     if not is_authorized(request):
-        return web.json_response({"error": "Ruxsat berilmagan!"}, status=401)
-        
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
         order_id = int(request.match_info['id'])
         from database import models
@@ -204,96 +167,221 @@ async def api_order_arrived(request):
         )
         if not db_order:
             return web.json_response({"error": "Buyurtma topilmadi!"}, status=404)
-            
-        user_tg_id = db_order['telegram_id']
-        notification_text = (
-            f"🔔 **Kuryerimiz yetib keldi!**\n\n"
-            f"Sizning #{order_id}-sonli buyurtmangiz yetkazish nuqtasida. Iltimos, kuryer bilan uchrashing."
+        await bot.send_message(
+            chat_id=db_order['telegram_id'],
+            text=f"🔔 *Kuryer yetib keldi!*\n\n#{order_id}-buyurtmangiz eshik oldida. Iltimos uchrashing.",
+            parse_mode="Markdown"
         )
-        
-        try:
-            await bot.send_message(chat_id=user_tg_id, text=notification_text, parse_mode="Markdown")
-            logger.info(f"API: Courier arrived notification sent to user {user_tg_id} for Order #{order_id}")
-            return web.json_response({"success": True})
-        except Exception as notify_err:
-            logger.error(f"API: Failed to notify user {user_tg_id} about courier arrival: {notify_err}")
-            return web.json_response({"error": "Telegram orqali foydalanuvchiga xabar yuborishda xatolik yuz berdi"}, status=500)
-            
+        return web.json_response({"success": True})
     except Exception as e:
-        logger.error(f"Error in api_order_arrived: {e}")
+        logger.error(f"api_order_arrived: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+# --- PRODUCTS ---
+
+async def api_get_products(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        products = await models.get_all_products()
+        for p in products:
+            p['price'] = float(p['price'])
+            if p.get('created_at'):
+                p['created_at'] = p['created_at'].strftime("%Y-%m-%d %H:%M")
+        return web.json_response(products)
+    except Exception as e:
+        logger.error(f"api_get_products: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_add_product(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from decimal import Decimal
+        from database import models
+        data = await request.json()
+        name = data.get("name", "").strip()
+        price = data.get("price")
+        if not name or price is None:
+            return web.json_response({"error": "Nom va narx kiritilishi shart!"}, status=400)
+        product = await models.add_product(name, Decimal(str(price)))
+        product['price'] = float(product['price'])
+        if product.get('created_at'):
+            product['created_at'] = product['created_at'].strftime("%Y-%m-%d %H:%M")
+        logger.info(f"Yangi mahsulot qo'shildi: {name}")
+        return web.json_response({"success": True, "product": product})
+    except Exception as e:
+        logger.error(f"api_add_product: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_update_product(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from decimal import Decimal
+        from database.connection import execute_query
+        from database import models
+        product_id = int(request.match_info['id'])
+        data = await request.json()
+        name = data.get("name", "").strip()
+        price = data.get("price")
+        if not name or price is None:
+            return web.json_response({"error": "Nom va narx kiritilishi shart!"}, status=400)
+        await execute_query("UPDATE products SET name = $1 WHERE id = $2;", name, product_id)
+        await models.update_product_price(product_id, Decimal(str(price)))
+        logger.info(f"Mahsulot #{product_id} yangilandi: {name}, {price}")
+        return web.json_response({"success": True})
+    except Exception as e:
+        logger.error(f"api_update_product: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_toggle_product(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        product_id = int(request.match_info['id'])
+        data = await request.json()
+        is_active = bool(data.get("is_active", True))
+        await models.set_product_active_status(product_id, is_active)
+        logger.info(f"Mahsulot #{product_id} holati: {'faol' if is_active else 'nofaol'}")
+        return web.json_response({"success": True})
+    except Exception as e:
+        logger.error(f"api_toggle_product: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+# --- CUSTOMERS ---
+
+async def api_get_customers(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        users = await models.get_all_users()
+        for u in users:
+            if u.get('created_at'):
+                u['created_at'] = u['created_at'].strftime("%Y-%m-%d %H:%M")
+        return web.json_response(users)
+    except Exception as e:
+        logger.error(f"api_get_customers: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+# --- BROADCAST ---
+
+async def api_broadcast(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        data = await request.json()
+        text = data.get("text", "").strip()
+        if not text:
+            return web.json_response({"error": "Xabar matni bo'sh!"}, status=400)
+
+        users = await models.get_all_users()
+        sent, failed = 0, 0
+        for user in users:
+            try:
+                await bot.send_message(
+                    chat_id=user['telegram_id'],
+                    text=text,
+                    parse_mode="Markdown"
+                )
+                sent += 1
+                await asyncio.sleep(0.05)  # Telegram rate limit
+            except Exception as err:
+                logger.warning(f"Broadcast xato {user['telegram_id']}: {err}")
+                failed += 1
+
+        logger.info(f"Broadcast: {sent} yuborildi, {failed} xato")
+        return web.json_response({"success": True, "sent": sent, "failed": failed})
+    except Exception as e:
+        logger.error(f"api_broadcast: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+# ============================================================
+# WEB SERVER
+# ============================================================
+
 async def start_web_server():
-    """Starts a web server to satisfy Render's health checks and host the admin dashboard."""
     app = web.Application()
-    
-    # API Routes
+
+    # --- API Routes ---
     app.router.add_get('/health', handle_health)
     app.router.add_post('/api/login', api_login)
+
+    # Stats
     app.router.add_get('/api/stats', api_get_stats)
+
+    # Orders
     app.router.add_get('/api/orders', api_get_orders)
     app.router.add_post('/api/orders/{id}/status', api_update_order_status)
     app.router.add_post('/api/orders/{id}/arrived', api_order_arrived)
-    
-    # Static pages & files
+
+    # Products
+    app.router.add_get('/api/products', api_get_products)
+    app.router.add_post('/api/products', api_add_product)
+    app.router.add_put('/api/products/{id}', api_update_product)
+    app.router.add_post('/api/products/{id}/toggle', api_toggle_product)
+
+    # Customers
+    app.router.add_get('/api/customers', api_get_customers)
+
+    # Broadcast
+    app.router.add_post('/api/broadcast', api_broadcast)
+
+    # --- Static Pages ---
     static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-    
-    # Custom routes for PWA service worker and manifest to run in root scope
-    async def sw_handler(request):
-        return web.FileResponse(os.path.join(static_path, 'sw.js'))
-        
-    async def manifest_handler(request):
-        return web.FileResponse(os.path.join(static_path, 'manifest.json'))
-        
+
     async def index_handler(request):
         return web.FileResponse(os.path.join(static_path, 'index.html'))
-        
-    async def login_handler(request):
-        return web.FileResponse(os.path.join(static_path, 'login.html'))
-        
-    app.router.add_get('/', handle_health) # Root serves health check (security by obscurity)
+
+    async def sw_handler(request):
+        return web.FileResponse(os.path.join(static_path, 'sw.js'))
+
+    async def manifest_handler(request):
+        return web.FileResponse(os.path.join(static_path, 'manifest.json'))
+
+    app.router.add_get('/', handle_health)
     app.router.add_get('/chorvador-panel', index_handler)
-    app.router.add_get('/chorvador-panel/login', login_handler)
+    app.router.add_get('/chorvador-panel/login', index_handler)  # SPA — hamma narsa index.html
     app.router.add_get('/sw.js', sw_handler)
     app.router.add_get('/manifest.json', manifest_handler)
-    
-    # Route for other static files (CSS, JS, Icons)
     app.router.add_static('/static/', static_path, name='static')
-    
+
     port = int(os.getenv("PORT", "8080"))
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    logger.info(f"Web server started on port {port} for Render health checks and Web Panel.")
+    logger.info(f"Web server {port}-portda ishga tushdi.")
+
+# ============================================================
+# MAIN
+# ============================================================
 
 async def main():
-    # Register startup and shutdown lifecycle hooks
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
-    
-    # Register handlers
     register_routers(dp)
-    
-    # Start web server for Render health checks
+
     try:
         await start_web_server()
     except Exception as e:
-        logger.error(f"Failed to start web server: {e}")
-    
-    # Start bot polling (skip accumulated updates on restart)
-    logger.info("Starting bot polling...")
+        logger.error(f"Web server xatosi: {e}")
+
+    logger.info("Bot polling boshlandi...")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     except Exception as e:
-        logger.critical(f"Bot execution error: {e}")
+        logger.critical(f"Bot xatosi: {e}")
     finally:
-        # Guarantee bot session is closed cleanly
         await bot.session.close()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot stopped by user.")
+        logger.info("Bot to'xtatildi.")

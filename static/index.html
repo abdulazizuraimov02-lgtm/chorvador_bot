@@ -1,77 +1,976 @@
-<!DOCTYPE html>
-<html lang="uz">
+bor<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chorvador Bot — Boshqaruv Paneli</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0b0f19">
-    <link rel="icon" type="image/png" href="/static/icon.png">
-    <!-- Chart.js for analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chorvador Panel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #222535;
+  --border: #2d3148;
+  --accent: #4f8ef7;
+  --accent2: #7c6ff7;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --text: #e8eaf0;
+  --muted: #8b90a7;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+[data-theme="light"] {
+  --bg: #f0f2f8;
+  --surface: #ffffff;
+  --surface2: #f7f8fc;
+  --border: #dde1f0;
+  --accent: #3b72e8;
+  --accent2: #6b5ce7;
+  --green: #16a34a;
+  --yellow: #d97706;
+  --red: #dc2626;
+  --text: #1a1d27;
+  --muted: #6b7280;
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition: background .3s, color .3s; }
+
+/* LAYOUT */
+.app { display:flex; height:100vh; overflow:hidden; }
+.sidebar { width:240px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+.main { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+.topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.content { padding:24px; flex:1; }
+
+/* SIDEBAR */
+.logo { padding:20px; border-bottom:1px solid var(--border); }
+.logo-title { font-size:18px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:10px; }
+.logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.logo-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+.nav { padding:12px 8px; flex:1; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; cursor:pointer; color:var(--muted); font-size:14px; font-weight:500; transition:.15s; margin-bottom:2px; border:none; background:none; width:100%; text-align:left; }
+.nav-item:hover { background:var(--surface2); color:var(--text); }
+.nav-item.active { background:rgba(79,142,247,0.12); color:var(--accent); }
+.nav-item .icon { font-size:18px; width:22px; text-align:center; }
+.nav-badge { margin-left:auto; background:var(--red); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
+.sidebar-footer { padding:12px; border-top:1px solid var(--border); }
+
+/* TOPBAR */
+.page-title { font-size:16px; font-weight:600; }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.theme-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; cursor:pointer; font-size:16px; color:var(--text); transition:.15s; }
+.theme-btn:hover { background:var(--border); }
+.logout-btn { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red); border-radius:8px; padding:7px 14px; cursor:pointer; font-size:13px; font-weight:500; }
+
+/* STATS CARDS */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; position:relative; overflow:hidden; }
+.stat-card::before { content:''; position:absolute; top:0; right:0; width:80px; height:80px; border-radius:50%; opacity:.08; transform:translate(20px,-20px); }
+.stat-card.blue::before { background:var(--accent); }
+.stat-card.purple::before { background:var(--accent2); }
+.stat-card.green::before { background:var(--green); }
+.stat-card.yellow::before { background:var(--yellow); }
+.stat-icon { font-size:28px; margin-bottom:10px; }
+.stat-value { font-size:26px; font-weight:700; line-height:1; }
+.stat-label { font-size:12px; color:var(--muted); margin-top:4px; }
+.stat-change { font-size:11px; margin-top:8px; display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:20px; }
+.stat-change.up { background:rgba(34,197,94,.1); color:var(--green); }
+
+/* CHART */
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px; }
+.chart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.card-title { font-size:15px; font-weight:600; }
+.chart-tabs { display:flex; gap:4px; background:var(--surface2); border-radius:8px; padding:3px; }
+.chart-tab { padding:5px 14px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; border:none; background:none; color:var(--muted); }
+.chart-tab.active { background:var(--surface); color:var(--text); }
+
+/* ORDERS TABLE */
+.table-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.table-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.search-box { display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 12px; flex:1; max-width:280px; }
+.search-box input { background:none; border:none; outline:none; color:var(--text); font-size:13px; width:100%; }
+.search-box input::placeholder { color:var(--muted); }
+.filter-row { display:flex; gap:8px; }
+.filter-btn { padding:7px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; transition:.15s; }
+.filter-btn.active, .filter-btn:hover { background:rgba(79,142,247,.12); border-color:var(--accent); color:var(--accent); }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th { padding:11px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); white-space:nowrap; }
+td { padding:13px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--surface2); }
+.status-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; }
+.status-badge::before { content:''; width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.badge-pending { background:rgba(245,158,11,.1); color:var(--yellow); }
+.badge-pending::before { background:var(--yellow); }
+.badge-confirmed { background:rgba(79,142,247,.1); color:var(--accent); }
+.badge-confirmed::before { background:var(--accent); }
+.badge-completed { background:rgba(34,197,94,.1); color:var(--green); }
+.badge-completed::before { background:var(--green); }
+.badge-cancelled { background:rgba(239,68,68,.1); color:var(--red); }
+.badge-cancelled::before { background:var(--red); }
+.action-btn { padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:11px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.action-btn:hover { background:var(--border); }
+.action-btn.primary { background:rgba(79,142,247,.12); border-color:var(--accent); color:var(--accent); }
+.action-btn.success { background:rgba(34,197,94,.12); border-color:var(--green); color:var(--green); }
+.action-btn.danger { background:rgba(239,68,68,.12); border-color:var(--red); color:var(--red); }
+.btn-row { display:flex; gap:4px; flex-wrap:wrap; }
+.customer-info .name { font-weight:600; font-size:13px; }
+.customer-info .phone { font-size:11px; color:var(--muted); margin-top:2px; }
+.items-list { font-size:12px; color:var(--muted); }
+.items-list span { display:block; }
+
+/* TABS / PAGES */
+.page { display:none; }
+.page.active { display:block; }
+
+/* PRODUCTS PAGE */
+.products-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+.product-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+.product-name { font-size:15px; font-weight:600; margin-bottom:4px; }
+.product-price { font-size:22px; font-weight:700; color:var(--accent); }
+.product-price small { font-size:12px; color:var(--muted); font-weight:400; }
+.product-status { margin-top:10px; }
+.product-actions { display:flex; gap:6px; margin-top:12px; }
+.toggle-switch { position:relative; display:inline-block; width:40px; height:22px; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:11px; cursor:pointer; transition:.2s; }
+.toggle-slider::before { content:''; position:absolute; width:16px; height:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+input:checked + .toggle-slider { background:var(--green); }
+input:checked + .toggle-slider::before { transform:translateX(18px); }
+.toggle-label { font-size:12px; color:var(--muted); margin-left:6px; vertical-align:middle; }
+
+/* CUSTOMERS PAGE */
+.customers-table-wrap { overflow-x:auto; }
+
+/* BROADCAST PAGE */
+.broadcast-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; max-width:600px; }
+.form-group { margin-bottom:16px; }
+.form-label { font-size:13px; font-weight:500; margin-bottom:6px; display:block; color:var(--muted); }
+.form-input, .form-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-size:13px; outline:none; font-family:inherit; transition:.15s; }
+.form-input:focus, .form-textarea:focus { border-color:var(--accent); }
+.form-textarea { min-height:120px; resize:vertical; }
+.send-btn { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border:none; border-radius:9px; padding:11px 24px; font-size:14px; font-weight:600; cursor:pointer; transition:.15s; display:flex; align-items:center; gap:8px; }
+.send-btn:hover { opacity:.9; }
+.send-btn:disabled { opacity:.5; cursor:not-allowed; }
+.preview-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; min-height:60px; white-space:pre-wrap; margin-top:8px; color:var(--text); }
+.recipient-info { display:flex; align-items:center; gap:10px; margin-bottom:16px; background:rgba(79,142,247,.08); border:1px solid rgba(79,142,247,.2); border-radius:8px; padding:12px 14px; }
+
+/* PAYMENT PAGE */
+.payment-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px; }
+.pay-stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+.pay-stat-val { font-size:20px; font-weight:700; }
+.pay-stat-label { font-size:11px; color:var(--muted); margin-top:3px; }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:90%; max-width:480px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow); }
+.modal-title { font-size:17px; font-weight:700; margin-bottom:16px; }
+.modal-close { float:right; background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); }
+.detail-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.detail-row:last-child { border-bottom:none; }
+.detail-label { color:var(--muted); }
+.detail-val { font-weight:600; text-align:right; }
+.status-select-row { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.status-select-btn { flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); cursor:pointer; font-size:12px; font-weight:600; transition:.15s; min-width:80px; }
+.status-select-btn:hover { background:var(--border); }
+.status-select-btn.sel-confirmed { background:rgba(79,142,247,.12); border-color:var(--accent); color:var(--accent); }
+.status-select-btn.sel-completed { background:rgba(34,197,94,.12); border-color:var(--green); color:var(--green); }
+.status-select-btn.sel-cancelled { background:rgba(239,68,68,.12); border-color:var(--red); color:var(--red); }
+
+/* ADD PRODUCT MODAL */
+.modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+.btn-cancel { padding:9px 18px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); cursor:pointer; font-size:13px; }
+.btn-save { padding:9px 18px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer; font-size:13px; font-weight:600; }
+
+/* LOADER */
+.loader { display:flex; align-items:center; justify-content:center; padding:40px; color:var(--muted); font-size:13px; gap:10px; }
+.spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* TOAST */
+.toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+.toast { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 18px; font-size:13px; box-shadow:var(--shadow); animation:slideIn .25s ease; display:flex; align-items:center; gap:8px; min-width:240px; }
+.toast.success { border-left:3px solid var(--green); }
+.toast.error { border-left:3px solid var(--red); }
+.toast.info { border-left:3px solid var(--accent); }
+@keyframes slideIn { from { transform:translateX(40px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+/* LOGIN */
+#login-screen { position:fixed; inset:0; background:var(--bg); z-index:9998; display:flex; align-items:center; justify-content:center; }
+.login-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; width:100%; max-width:360px; box-shadow:var(--shadow); }
+.login-logo { text-align:center; margin-bottom:28px; }
+.login-logo .icon { font-size:48px; }
+.login-logo h2 { font-size:20px; font-weight:700; margin-top:10px; }
+.login-logo p { font-size:13px; color:var(--muted); margin-top:4px; }
+.login-btn { width:100%; padding:12px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; }
+.login-error { color:var(--red); font-size:12px; margin-top:8px; text-align:center; display:none; }
+.pw-wrap { position:relative; }
+.pw-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:16px; color:var(--muted); background:none; border:none; }
+
+/* MAP LINK */
+.map-link { color:var(--accent); text-decoration:none; font-size:11px; }
+.map-link:hover { text-decoration:underline; }
+
+/* EMPTY STATE */
+.empty-state { text-align:center; padding:48px 24px; color:var(--muted); }
+.empty-state .emoji { font-size:40px; margin-bottom:12px; }
+.empty-state p { font-size:14px; }
+
+/* SECTION HEADER */
+.section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.add-btn { display:flex; align-items:center; gap:6px; padding:9px 16px; background:var(--accent); color:#fff; border:none; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; transition:.15s; }
+.add-btn:hover { opacity:.88; }
+
+/* RESPONSIVE */
+@media(max-width:768px) {
+  .sidebar { width:200px; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .content { padding:16px; }
+}
+@media(max-width:560px) {
+  .sidebar { display:none; }
+  .stats-grid { grid-template-columns:1fr 1fr; }
+}
+</style>
 </head>
 <body>
-    <div class="dashboard-wrapper">
-        <header class="glass">
-            <div class="brand">
-                <span class="brand-logo">🧀</span>
-                <h1>Chorvador Admin</h1>
-            </div>
-            <button id="logoutBtn" class="logout-btn">Chiqish</button>
-        </header>
 
-        <main>
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <div class="stat-card glass">
-                    <div class="stat-info">
-                        <p>Jami Mijozlar</p>
-                        <span id="totalCustomers" class="stat-value">0</span>
-                    </div>
-                    <span class="stat-icon">👥</span>
-                </div>
-                <div class="stat-card glass">
-                    <div class="stat-info">
-                        <p>Jami Buyurtmalar</p>
-                        <span id="totalOrders" class="stat-value">0</span>
-                    </div>
-                    <span class="stat-icon">📦</span>
-                </div>
-                <div class="stat-card glass">
-                    <div class="stat-info">
-                        <p>Umumiy Tushum</p>
-                        <span id="totalRevenue" class="stat-value">0 so'm</span>
-                    </div>
-                    <span class="stat-icon">💵</span>
-                </div>
-            </div>
-
-            <!-- Charts Grid -->
-            <div class="charts-grid">
-                <div class="chart-card glass">
-                    <h3>Oxirgi 7 kunlik savdo tahlili</h3>
-                    <div style="position: relative; height:250px; width:100%">
-                        <canvas id="salesChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Real-time Orders Section -->
-            <div class="orders-section">
-                <h2>🔔 Real-time Buyurtmalar</h2>
-                <div id="ordersList" class="orders-list">
-                    <div class="empty-state glass">
-                        <div class="empty-icon">⏳</div>
-                        <p>Buyurtmalar yuklanmoqda...</p>
-                    </div>
-                </div>
-            </div>
-        </main>
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🥛</div>
+      <h2>Chorvador Panel</h2>
+      <p>Admin boshqaruv tizimi</p>
     </div>
+    <div class="form-group">
+      <label class="form-label">Parol</label>
+      <div class="pw-wrap">
+        <input id="pw-input" type="password" class="form-input" placeholder="Parolni kiriting..." onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="pw-toggle" onclick="togglePw()">👁</button>
+      </div>
+    </div>
+    <button class="login-btn" onclick="doLogin()">Kirish →</button>
+    <div class="login-error" id="login-error">Parol noto'g'ri!</div>
+  </div>
+</div>
 
-    <!-- PWA Installation Toast / Notification can go here if needed -->
+<!-- APP -->
+<div class="app" id="app" style="display:none;">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-title"><div class="logo-icon">🥛</div><div><div>Chorvador</div><div class="logo-sub">Admin Panel</div></div></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" onclick="navigate('dashboard',this)"><span class="icon">📊</span> Statistika</button>
+      <button class="nav-item" onclick="navigate('orders',this)"><span class="icon">📦</span> Buyurtmalar <span class="nav-badge" id="pending-badge" style="display:none">0</span></button>
+      <button class="nav-item" onclick="navigate('products',this)"><span class="icon">🧀</span> Mahsulotlar</button>
+      <button class="nav-item" onclick="navigate('customers',this)"><span class="icon">👥</span> Mijozlar</button>
+      <button class="nav-item" onclick="navigate('broadcast',this)"><span class="icon">📢</span> Xabar yuborish</button>
+      <button class="nav-item" onclick="navigate('payments',this)"><span class="icon">💰</span> To'lovlar</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div style="font-size:11px;color:var(--muted);text-align:center;" id="sidebar-time">--:--</div>
+    </div>
+  </aside>
 
-    <script src="/static/app.js"></script>
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">Statistika</div>
+      <div class="topbar-right">
+        <button class="theme-btn" onclick="toggleTheme()" title="Tema almashtir">🌙</button>
+        <button class="logout-btn" onclick="logout()">Chiqish</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid" id="stats-grid">
+          <div class="loader"><div class="spinner"></div> Yuklanmoqda...</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="card-title">Oxirgi 7 kun</div>
+            <div class="chart-tabs">
+              <button class="chart-tab active" onclick="switchChart('revenue',this)">Daromad</button>
+              <button class="chart-tab" onclick="switchChart('orders',this)">Buyurtmalar</button>
+            </div>
+          </div>
+          <canvas id="main-chart" height="90"></canvas>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><div class="card-title">Oxirgi buyurtmalar</div></div>
+          <div class="table-wrap"><table id="recent-orders-table"><tbody><tr><td colspan="6"><div class="loader"><div class="spinner"></div></div></td></tr></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ORDERS -->
+      <div class="page" id="page-orders">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="search-box">🔍 <input type="text" id="order-search" placeholder="Mijoz, telefon..." oninput="filterOrders()"></div>
+            <div class="filter-row">
+              <button class="filter-btn active" onclick="setFilter('all',this)">Hammasi</button>
+              <button class="filter-btn" onclick="setFilter('pending',this)">⏳ Kutmoqda</button>
+              <button class="filter-btn" onclick="setFilter('confirmed',this)">✅ Tasdiqlangan</button>
+              <button class="filter-btn" onclick="setFilter('completed',this)">🚚 Yetkazildi</button>
+              <button class="filter-btn" onclick="setFilter('cancelled',this)">❌ Bekor</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Mijoz</th><th>Mahsulotlar</th><th>Summa</th><th>Sana</th><th>Status</th><th>Amal</th></tr></thead>
+              <tbody id="orders-body"><tr><td colspan="7"><div class="loader"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div class="page" id="page-products">
+        <div class="section-header">
+          <div class="card-title">Mahsulotlar katalogi</div>
+          <button class="add-btn" onclick="openAddProduct()">+ Yangi mahsulot</button>
+        </div>
+        <div class="products-grid" id="products-grid">
+          <div class="loader"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="page" id="page-customers">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="card-title">Mijozlar bazasi</div>
+            <div class="search-box">🔍 <input type="text" id="customer-search" placeholder="Ism, telefon..." oninput="filterCustomers()"></div>
+          </div>
+          <div class="customers-table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Ism</th><th>Telefon</th><th>Filial</th><th>Lokatsiya</th><th>Ro'yxatdan o'tgan</th></tr></thead>
+              <tbody id="customers-body"><tr><td colspan="6"><div class="loader"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BROADCAST -->
+      <div class="page" id="page-broadcast">
+        <div class="broadcast-card">
+          <div class="recipient-info">
+            <span style="font-size:20px">📢</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;">Barcha mijozlarga xabar</div>
+              <div style="font-size:11px;color:var(--muted);" id="broadcast-count">Mijozlar soni yuklanmoqda...</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Xabar matni</label>
+            <textarea class="form-textarea" id="broadcast-text" placeholder="Xabar yozing... (Telegram Markdown qo'llab-quvvatlanadi)" oninput="updatePreview()"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ko'rinishi</label>
+            <div class="preview-box" id="broadcast-preview">Xabar yozing...</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button class="send-btn" id="send-btn" onclick="sendBroadcast()">
+              <span>📤</span> Yuborish
+            </button>
+            <div style="font-size:12px;color:var(--muted);" id="broadcast-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENTS -->
+      <div class="page" id="page-payments">
+        <div class="payment-stats" id="payment-stats">
+          <div class="loader"><div class="spinner"></div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header">
+            <div class="card-title">To'lov hisoboti</div>
+            <div class="filter-row">
+              <input type="date" id="pay-date-from" class="filter-btn" style="cursor:auto;" onchange="filterPayments()">
+              <input type="date" id="pay-date-to" class="filter-btn" style="cursor:auto;" onchange="filterPayments()">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Sana</th><th>Mijoz</th><th>Mahsulotlar</th><th>Summa</th><th>Status</th></tr></thead>
+              <tbody id="payments-body"><tr><td colspan="6"><div class="loader"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="order-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('order-modal')">×</button>
+    <div class="modal-title">Buyurtma tafsiloti</div>
+    <div id="modal-content"></div>
+    <div class="status-select-row" id="modal-status-row"></div>
+    <div style="margin-top:12px;display:flex;gap:6px;">
+      <button class="action-btn primary" onclick="notifyArrived()">🔔 Kuryer yetdi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('product-modal')">×</button>
+    <div class="modal-title" id="product-modal-title">Yangi mahsulot</div>
+    <div class="form-group">
+      <label class="form-label">Nomi</label>
+      <input type="text" class="form-input" id="prod-name" placeholder="Masalan: Qatiq">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Narxi (so'm)</label>
+      <input type="number" class="form-input" id="prod-price" placeholder="7000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('product-modal')">Bekor</button>
+      <button class="btn-save" onclick="saveProduct()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ==================== CONFIG ====================
+const BASE = ''; // same origin — change if API is on different host
+let TOKEN = '';
+let allOrders = [];
+let allCustomers = [];
+let allProducts = [];
+let chartInstance = null;
+let chartData = null;
+let currentChartMode = 'revenue';
+let currentOrderId = null;
+let currentFilter = 'all';
+let editingProductId = null;
+
+// ==================== AUTH ====================
+function savedToken() { try { return sessionStorage.getItem('cp_token') || ''; } catch { return ''; } }
+
+async function doLogin() {
+  const pw = document.getElementById('pw-input').value;
+  if (!pw) return;
+  try {
+    const r = await fetch(BASE + '/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pw}) });
+    const d = await r.json();
+    if (r.ok && d.token) {
+      TOKEN = d.token;
+      try { sessionStorage.setItem('cp_token', TOKEN); } catch {}
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      initApp();
+    } else {
+      document.getElementById('login-error').style.display = 'block';
+    }
+  } catch { showToast('Server bilan aloqa yo\'q', 'error'); }
+}
+
+function togglePw() {
+  const i = document.getElementById('pw-input');
+  i.type = i.type === 'password' ? 'text' : 'password';
+}
+
+function logout() {
+  try { sessionStorage.removeItem('cp_token'); } catch {}
+  TOKEN = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ==================== API ====================
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Authorization': 'Bearer ' + TOKEN } };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const r = await fetch(BASE + path, opts);
+  if (r.status === 401) { logout(); return null; }
+  return r.json();
+}
+
+// ==================== INIT ====================
+function initApp() {
+  loadDashboard();
+  updateClock();
+  setInterval(updateClock, 1000);
+  // Auto-refresh orders every 60s
+  setInterval(() => { loadOrders(false); }, 60000);
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('sidebar-time').textContent =
+    now.toLocaleTimeString('uz-UZ', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' | ' +
+    now.toLocaleDateString('uz-UZ', {day:'2-digit', month:'2-digit'});
+}
+
+// ==================== NAVIGATION ====================
+function navigate(page, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('page-' + page).classList.add('active');
+  const titles = { dashboard:'Statistika', orders:'Buyurtmalar', products:'Mahsulotlar', customers:'Mijozlar', broadcast:'Xabar yuborish', payments:'To\'lovlar' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'orders') loadOrders();
+  if (page === 'products') loadProducts();
+  if (page === 'customers') loadCustomers();
+  if (page === 'broadcast') loadBroadcastInfo();
+  if (page === 'payments') loadPayments();
+}
+
+// ==================== DASHBOARD ====================
+async function loadDashboard() {
+  const stats = await api('/api/stats');
+  if (!stats) return;
+  chartData = stats.chart_data;
+  renderStats(stats);
+  renderChart(stats.chart_data);
+  // Recent orders (last 5)
+  const orders = await api('/api/orders');
+  if (orders) {
+    allOrders = orders;
+    updatePendingBadge();
+    renderRecentOrders(orders.slice(0, 5));
+  }
+}
+
+function renderStats(s) {
+  const g = document.getElementById('stats-grid');
+  g.innerHTML = `
+    <div class="stat-card blue">
+      <div class="stat-icon">📦</div>
+      <div class="stat-value">${s.total_orders.toLocaleString()}</div>
+      <div class="stat-label">Jami buyurtmalar</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">👥</div>
+      <div class="stat-value">${s.total_customers.toLocaleString()}</div>
+      <div class="stat-label">Jami mijozlar</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">💰</div>
+      <div class="stat-value">${fmtMoney(s.total_revenue)}</div>
+      <div class="stat-label">Jami daromad</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-icon">📅</div>
+      <div class="stat-value">${s.chart_data.at(-1)?.orders || 0}</div>
+      <div class="stat-label">Bugungi buyurtmalar</div>
+    </div>
+  `;
+}
+
+function renderChart(data) {
+  const ctx = document.getElementById('main-chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  const labels = data.map(d => d.date);
+  const isRev = currentChartMode === 'revenue';
+  const vals = data.map(d => isRev ? d.revenue : d.orders);
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: isRev ? 'Daromad (so\'m)' : 'Buyurtmalar',
+        data: vals,
+        backgroundColor: 'rgba(79,142,247,0.25)',
+        borderColor: '#4f8ef7',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => isRev ? fmtMoney(ctx.raw) : ctx.raw + ' ta' } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b90a7' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b90a7', callback: v => isRev ? fmtMoney(v) : v } }
+      }
+    }
+  });
+}
+
+function switchChart(mode, btn) {
+  document.querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentChartMode = mode;
+  if (chartData) renderChart(chartData);
+}
+
+function renderRecentOrders(orders) {
+  const tbody = document.getElementById('recent-orders-table').querySelector('tbody') || document.querySelector('#recent-orders-table tbody');
+  // recreate table properly
+  document.getElementById('recent-orders-table').innerHTML = `
+    <thead><tr><th>#</th><th>Mijoz</th><th>Summa</th><th>Sana</th><th>Status</th><th>Amal</th></tr></thead>
+    <tbody>${orders.length ? orders.map(o => orderRow(o, true)).join('') : '<tr><td colspan="6"><div class="empty-state"><div class="emoji">📦</div><p>Buyurtmalar yo\'q</p></div></td></tr>'}</tbody>
+  `;
+}
+
+// ==================== ORDERS ====================
+async function loadOrders(showLoader = true) {
+  if (showLoader) document.getElementById('orders-body').innerHTML = '<tr><td colspan="7"><div class="loader"><div class="spinner"></div></div></td></tr>';
+  const orders = await api('/api/orders');
+  if (!orders) return;
+  allOrders = orders;
+  updatePendingBadge();
+  renderOrders();
+}
+
+function updatePendingBadge() {
+  const cnt = allOrders.filter(o => o.status === 'pending').length;
+  const badge = document.getElementById('pending-badge');
+  badge.style.display = cnt > 0 ? '' : 'none';
+  badge.textContent = cnt;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrders();
+}
+
+function filterOrders() { renderOrders(); }
+
+function renderOrders() {
+  const q = document.getElementById('order-search').value.toLowerCase();
+  let data = allOrders.filter(o => {
+    if (currentFilter !== 'all' && o.status !== currentFilter) return false;
+    if (q && !o.full_name?.toLowerCase().includes(q) && !o.phone_number?.includes(q) && !String(o.order_id).includes(q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('orders-body');
+  tbody.innerHTML = data.length
+    ? data.map(o => orderRow(o, false)).join('')
+    : '<tr><td colspan="7"><div class="empty-state"><div class="emoji">🔍</div><p>Natija topilmadi</p></div></td></tr>';
+}
+
+function orderRow(o, mini) {
+  const items = (o.items || []).filter(i => i.product_name).map(i => `${i.product_name} × ${i.quantity}`).join(', ');
+  const badge = statusBadge(o.status);
+  if (mini) {
+    return `<tr>
+      <td><b>#${o.order_id}</b></td>
+      <td><div class="customer-info"><div class="name">${esc(o.full_name||'')}</div><div class="phone">${o.phone_number||''}</div></div></td>
+      <td>${fmtMoney(o.total_price)}</td>
+      <td>${o.delivery_date||''}</td>
+      <td>${badge}</td>
+      <td><button class="action-btn primary" onclick="openOrder(${o.order_id})">Ko'rish</button></td>
+    </tr>`;
+  }
+  return `<tr>
+    <td><b>#${o.order_id}</b><div style="font-size:10px;color:var(--muted)">${o.created_at||''}</div></td>
+    <td><div class="customer-info"><div class="name">${esc(o.full_name||'')}</div><div class="phone">${o.phone_number||''}</div></div></td>
+    <td><div class="items-list">${items || '—'}</div></td>
+    <td><b>${fmtMoney(o.total_price)}</b></td>
+    <td>${o.delivery_date||''}<br><span style="font-size:11px;color:var(--muted)">${o.delivery_time_start||''} - ${o.delivery_time_end||''}</span></td>
+    <td>${badge}</td>
+    <td><div class="btn-row">
+      <button class="action-btn primary" onclick="openOrder(${o.order_id})">Batafsil</button>
+    </div></td>
+  </tr>`;
+}
+
+function openOrder(id) {
+  currentOrderId = id;
+  const o = allOrders.find(x => x.order_id === id);
+  if (!o) return;
+  const items = (o.items || []).filter(i => i.product_name).map(i =>
+    `<div class="detail-row"><span class="detail-label">📌 ${esc(i.product_name)}</span><span class="detail-val">${i.quantity} × ${fmtMoney(i.price)} = ${fmtMoney(i.quantity * i.price)}</span></div>`
+  ).join('');
+  const mapLink = (o.latitude && o.longitude)
+    ? `<a href="https://maps.google.com/?q=${o.latitude},${o.longitude}" target="_blank" class="map-link">🗺 Xaritada ko'rish</a>`
+    : '—';
+  document.getElementById('modal-content').innerHTML = `
+    <div class="detail-row"><span class="detail-label">Buyurtma #</span><span class="detail-val">${o.order_id}</span></div>
+    <div class="detail-row"><span class="detail-label">Mijoz</span><span class="detail-val">${esc(o.full_name||'')}</span></div>
+    <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-val">${o.phone_number||''}</span></div>
+    <div class="detail-row"><span class="detail-label">Lokatsiya</span><span class="detail-val">${mapLink}</span></div>
+    <div class="detail-row"><span class="detail-label">Yetkazish</span><span class="detail-val">${o.delivery_date} | ${o.delivery_time_start}-${o.delivery_time_end}</span></div>
+    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-val">${statusBadge(o.status)}</span></div>
+    <div style="margin-top:12px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;">MAHSULOTLAR</div>
+    ${items}
+    <div class="detail-row"><span class="detail-label"><b>JAMI</b></span><span class="detail-val" style="color:var(--accent);font-size:16px;"><b>${fmtMoney(o.total_price)}</b></span></div>
+  `;
+  const btns = ['confirmed','completed','cancelled'].map(s =>
+    `<button class="status-select-btn sel-${s}" onclick="setOrderStatus('${s}')">${{confirmed:'✅ Tasdiqlash',completed:'🚚 Yetkazildi',cancelled:'❌ Bekor'}[s]}</button>`
+  ).join('');
+  document.getElementById('modal-status-row').innerHTML = btns;
+  document.getElementById('order-modal').classList.add('open');
+}
+
+async function setOrderStatus(status) {
+  if (!currentOrderId) return;
+  const r = await api(`/api/orders/${currentOrderId}/status`, 'POST', { status });
+  if (r?.success) {
+    showToast('Status yangilandi!', 'success');
+    closeModal('order-modal');
+    loadOrders(false);
+    loadDashboard();
+  } else { showToast('Xatolik yuz berdi', 'error'); }
+}
+
+async function notifyArrived() {
+  if (!currentOrderId) return;
+  const r = await api(`/api/orders/${currentOrderId}/arrived`, 'POST');
+  if (r?.success) showToast('Mijozga bildirishnoma yuborildi!', 'success');
+  else showToast('Xatolik yuz berdi', 'error');
+}
+
+// ==================== PRODUCTS ====================
+async function loadProducts() {
+  document.getElementById('products-grid').innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  const data = await api('/api/products');
+  if (!data) return;
+  allProducts = Array.isArray(data) ? data : (data.products || []);
+  renderProducts();
+}
+
+function renderProducts() {
+  const g = document.getElementById('products-grid');
+  if (!allProducts.length) { g.innerHTML = '<div class="empty-state"><div class="emoji">🧀</div><p>Mahsulotlar yo\'q</p></div>'; return; }
+  g.innerHTML = allProducts.map(p => `
+    <div class="product-card">
+      <div class="product-name">${esc(p.name)}</div>
+      <div class="product-price">${fmtMoney(p.price)} <small>so'm</small></div>
+      <div class="product-status" style="margin-top:10px;display:flex;align-items:center;gap:6px;">
+        <label class="toggle-switch">
+          <input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleProduct(${p.id}, this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">${p.is_active ? 'Faol' : 'Nofaol'}</span>
+      </div>
+      <div class="product-actions">
+        <button class="action-btn primary" onclick="openEditProduct(${p.id})">✏️ Tahrirlash</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openAddProduct() {
+  editingProductId = null;
+  document.getElementById('product-modal-title').textContent = 'Yangi mahsulot';
+  document.getElementById('prod-name').value = '';
+  document.getElementById('prod-price').value = '';
+  document.getElementById('product-modal').classList.add('open');
+}
+
+function openEditProduct(id) {
+  editingProductId = id;
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('product-modal-title').textContent = 'Mahsulotni tahrirlash';
+  document.getElementById('prod-name').value = p.name;
+  document.getElementById('prod-price').value = p.price;
+  document.getElementById('product-modal').classList.add('open');
+}
+
+async function saveProduct() {
+  const name = document.getElementById('prod-name').value.trim();
+  const price = parseFloat(document.getElementById('prod-price').value);
+  if (!name || isNaN(price) || price <= 0) { showToast('Iltimos, barcha maydonlarni to\'ldiring', 'error'); return; }
+  let r;
+  if (editingProductId) {
+    r = await api(`/api/products/${editingProductId}`, 'PUT', { name, price });
+  } else {
+    r = await api('/api/products', 'POST', { name, price });
+  }
+  if (r?.success || r?.id || r?.product) {
+    showToast(editingProductId ? 'Mahsulot yangilandi!' : 'Mahsulot qo\'shildi!', 'success');
+    closeModal('product-modal');
+    loadProducts();
+  } else { showToast(r?.error || 'Xatolik', 'error'); }
+}
+
+async function toggleProduct(id, is_active) {
+  const r = await api(`/api/products/${id}/toggle`, 'POST', { is_active });
+  if (r?.success) showToast(is_active ? 'Faollashtirildi' : 'O\'chirildi', 'success');
+  else { showToast('Xatolik', 'error'); loadProducts(); }
+}
+
+// ==================== CUSTOMERS ====================
+async function loadCustomers() {
+  document.getElementById('customers-body').innerHTML = '<tr><td colspan="6"><div class="loader"><div class="spinner"></div></div></td></tr>';
+  const data = await api('/api/customers');
+  if (!data) return;
+  allCustomers = Array.isArray(data) ? data : (data.customers || []);
+  renderCustomers();
+}
+
+function filterCustomers() { renderCustomers(); }
+
+function renderCustomers() {
+  const q = document.getElementById('customer-search').value.toLowerCase();
+  const data = allCustomers.filter(c =>
+    !q || c.full_name?.toLowerCase().includes(q) || c.phone_number?.includes(q)
+  );
+  const tbody = document.getElementById('customers-body');
+  tbody.innerHTML = data.length
+    ? data.map((c, i) => `<tr>
+        <td>${i+1}</td>
+        <td><b>${esc(c.full_name||'')}</b>${c.is_admin ? ' <span style="font-size:10px;background:rgba(245,158,11,.15);color:var(--yellow);padding:1px 6px;border-radius:10px;">Admin</span>' : ''}</td>
+        <td>${c.phone_number||''}</td>
+        <td>${esc(c.branch_name||'—')}</td>
+        <td>${c.latitude && c.longitude ? `<a href="https://maps.google.com/?q=${c.latitude},${c.longitude}" target="_blank" class="map-link">📍 Ko'rish</a>` : '—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${fmtDate(c.created_at)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6"><div class="empty-state"><div class="emoji">👥</div><p>Mijozlar topilmadi</p></div></td></tr>';
+}
+
+// ==================== BROADCAST ====================
+async function loadBroadcastInfo() {
+  const data = await api('/api/customers');
+  if (data) {
+    const count = Array.isArray(data) ? data.length : (data.customers||[]).length;
+    document.getElementById('broadcast-count').textContent = `${count} ta mijoz qabul qiladi`;
+  }
+}
+
+function updatePreview() {
+  const text = document.getElementById('broadcast-text').value;
+  document.getElementById('broadcast-preview').textContent = text || 'Xabar yozing...';
+}
+
+async function sendBroadcast() {
+  const text = document.getElementById('broadcast-text').value.trim();
+  if (!text) { showToast('Xabar matni bo\'sh!', 'error'); return; }
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  document.getElementById('broadcast-status').textContent = 'Yuborilmoqda...';
+  const r = await api('/api/broadcast', 'POST', { text });
+  btn.disabled = false;
+  if (r?.success) {
+    showToast(`${r.sent || ''} ta mijozga xabar yuborildi!`, 'success');
+    document.getElementById('broadcast-text').value = '';
+    document.getElementById('broadcast-preview').textContent = 'Xabar yozing...';
+    document.getElementById('broadcast-status').textContent = '';
+  } else {
+    showToast(r?.error || 'Xatolik yuz berdi', 'error');
+    document.getElementById('broadcast-status').textContent = '';
+  }
+}
+
+// ==================== PAYMENTS ====================
+async function loadPayments() {
+  // Set default date range (last 30 days)
+  const today = new Date().toISOString().split('T')[0];
+  const month = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
+  document.getElementById('pay-date-from').value = document.getElementById('pay-date-from').value || month;
+  document.getElementById('pay-date-to').value = document.getElementById('pay-date-to').value || today;
+  const orders = allOrders.length ? allOrders : await api('/api/orders');
+  if (!orders) return;
+  if (!allOrders.length) allOrders = orders;
+  filterPayments();
+}
+
+function filterPayments() {
+  const from = document.getElementById('pay-date-from').value;
+  const to = document.getElementById('pay-date-to').value;
+  const data = allOrders.filter(o => {
+    if (from && o.delivery_date < from) return false;
+    if (to && o.delivery_date > to) return false;
+    return o.status === 'completed' || o.status === 'confirmed';
+  });
+  // Summary stats
+  const totalRev = data.reduce((s, o) => s + (o.total_price || 0), 0);
+  const completed = data.filter(o => o.status === 'completed').length;
+  document.getElementById('payment-stats').innerHTML = `
+    <div class="pay-stat"><div class="pay-stat-val" style="color:var(--green)">${fmtMoney(totalRev)}</div><div class="pay-stat-label">Jami daromad</div></div>
+    <div class="pay-stat"><div class="pay-stat-val">${data.length}</div><div class="pay-stat-label">Buyurtmalar soni</div></div>
+    <div class="pay-stat"><div class="pay-stat-val">${completed}</div><div class="pay-stat-label">Yetkazilgan</div></div>
+    <div class="pay-stat"><div class="pay-stat-val">${data.length ? fmtMoney(totalRev/data.length) : 0}</div><div class="pay-stat-label">O'rtacha buyurtma</div></div>
+  `;
+  const tbody = document.getElementById('payments-body');
+  tbody.innerHTML = data.length
+    ? data.map((o, i) => `<tr>
+        <td>${i+1}</td>
+        <td>${o.delivery_date||''}</td>
+        <td><div class="customer-info"><div class="name">${esc(o.full_name||'')}</div><div class="phone">${o.phone_number||''}</div></div></td>
+        <td><div class="items-list">${(o.items||[]).filter(x=>x.product_name).map(x=>`<span>${x.product_name} × ${x.quantity}</span>`).join('')}</div></td>
+        <td><b>${fmtMoney(o.total_price)}</b></td>
+        <td>${statusBadge(o.status)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6"><div class="empty-state"><div class="emoji">💰</div><p>Bu davrda ma\'lumot yo\'q</p></div></td></tr>';
+}
+
+// ==================== UTILS ====================
+function statusBadge(s) {
+  const map = { pending:'⏳ Kutmoqda', confirmed:'✅ Tasdiqlangan', completed:'🚚 Yetkazildi', cancelled:'❌ Bekor' };
+  return `<span class="status-badge badge-${s}">${map[s]||s}</span>`;
+}
+
+function fmtMoney(v) {
+  return Number(v||0).toLocaleString('uz-UZ') + ' so\'m';
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('uz-UZ'); } catch { return d; }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  currentOrderId = null;
+}
+
+// Click outside modal to close
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+function showToast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icon = { success:'✅', error:'❌', info:'ℹ️' }[type] || '';
+  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.querySelector('.theme-btn').textContent = isDark ? '🌙' : '☀️';
+  // Re-render chart for color update
+  if (chartData) setTimeout(() => renderChart(chartData), 100);
+}
+
+// ==================== AUTO LOGIN (if token saved) ====================
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = savedToken();
+  if (saved) {
+    TOKEN = saved;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    initApp();
+  }
+});
+</script>
 </body>
 </html>

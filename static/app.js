@@ -13,6 +13,14 @@ const API_HEADERS = {
 
 // Global variables
 let salesChart = null;
+let currentTab = "active"; // "active" or "archived"
+
+function switchTab(tabName) {
+    currentTab = tabName;
+    document.getElementById("tabActive").classList.toggle("active", tabName === "active");
+    document.getElementById("tabArchived").classList.toggle("active", tabName === "archived");
+    fetchDashboardData();
+}
 
 // Initialize Dashboard
 document.addEventListener("DOMContentLoaded", () => {
@@ -153,18 +161,32 @@ async function loadOrders() {
     const orders = await response.json();
     const container = document.getElementById("ordersList");
 
-    if (orders.length === 0) {
+    // Filter orders based on active tab
+    // Active: pending, confirmed
+    // Archived/Completed: completed, cancelled
+    const filteredOrders = orders.filter(order => {
+        if (currentTab === "active") {
+            return order.status === "pending" || order.status === "confirmed";
+        } else {
+            return order.status === "completed" || order.status === "cancelled";
+        }
+    });
+
+    if (filteredOrders.length === 0) {
+        const msg = currentTab === "active" 
+            ? "Hozircha hech qanday faol buyurtma mavjud emas." 
+            : "Hozircha yakunlangan yoki bekor qilingan buyurtmalar mavjud emas.";
         container.innerHTML = `
             <div class="empty-state glass">
                 <div class="empty-icon">📦</div>
-                <p>Hozircha hech qanday buyurtma mavjud emas.</p>
+                <p>${msg}</p>
             </div>
         `;
         return;
     }
 
     let html = "";
-    orders.forEach(order => {
+    filteredOrders.forEach(order => {
         const statusMap = {
             "pending": { text: "⏳ Kutilmoqda", class: "badge-pending" },
             "confirmed": { text: "✅ Tasdiqlangan", class: "badge-confirmed" },

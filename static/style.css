@@ -461,3 +461,107 @@ main {
     font-size: 3rem;
     margin-bottom: 10px;
 }
+
+/* Orders Section Header Tabs */
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.section-header-row h2 {
+    margin-bottom: 0 !important;
+}
+
+.tab-container {
+    display: flex;
+    padding: 4px;
+    border-radius: 10px;
+    background: rgba(17, 24, 39, 0.6);
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.tab-btn:hover:not(.active) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 600px) {
+    .section-header-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .tab-container {
+        width: 100%;
+    }
+    .tab-btn {
+        flex: 1;
+        text-align: center;
+        padding: 10px 12px;
+    }
+    
+    /* Adapt header for mobile */
+    header {
+        padding: 15px 20px;
+    }
+    .brand h1 {
+        font-size: 1.1rem;
+    }
+    
+    /* Stats grid columns */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    /* Order card mobile adjustments */
+    .order-card {
+        padding: 16px;
+    }
+    .order-body {
+        gap: 15px;
+    }
+    
+    /* Mobile tap targets & layout for buttons */
+    .order-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .total-price-label {
+        text-align: center;
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+    }
+    .order-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+    }
+    .action-btn {
+        width: 100%;
+        text-align: center;
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+}

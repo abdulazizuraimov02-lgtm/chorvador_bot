@@ -21,6 +21,62 @@ except Exception as e:
 REPORT_HOUR = 6
 REPORT_MINUTE = 0
 
+# Config: customer breakfast alert hour and minute (5:30 AM)
+CUSTOMER_ALERT_HOUR = 5
+CUSTOMER_ALERT_MINUTE = 30
+
+async def send_breakfast_reminder_to_customers(bot: Bot):
+    """Sends a daily breakfast order reminder message with product buttons to all registered customers."""
+    logger.info("Triggering automated breakfast order reminder for customers.")
+    
+    # 1. Fetch active products
+    try:
+        products = await models.get_active_products()
+    except Exception as e:
+        logger.error(f"Failed to fetch active products for breakfast reminder: {e}")
+        return
+        
+    if not products:
+        logger.warning("No active products available to attach to the breakfast reminder. Skipping reminder.")
+        return
+        
+    # 2. Get products inline keyboard
+    from keyboards import keyboards
+    keyboard = keyboards.get_products_keyboard(products)
+    
+    text = (
+        "☀️ **Xayrli tong!**\n\n"
+        "Bugun nonushtaga nima buyurtma qilasiz? 🥛🧀🍞\n"
+        "Quyidagi mahsulotlardan birini tanlab buyurtma berishingiz mumkin:"
+    )
+    
+    # 3. Fetch all registered users
+    try:
+        users = await models.get_all_users()
+    except Exception as e:
+        logger.error(f"Failed to fetch users for breakfast reminder: {e}")
+        return
+        
+    sent_count = 0
+    fail_count = 0
+    for u in users:
+        # Send only to customer users (not admins)
+        if not u.get("is_admin", False):
+            try:
+                await bot.send_message(
+                    chat_id=u['telegram_id'],
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+                sent_count += 1
+                logger.debug(f"Breakfast reminder sent to customer {u['telegram_id']}")
+            except Exception as send_err:
+                fail_count += 1
+                logger.error(f"Failed to send breakfast reminder to customer {u['telegram_id']}: {send_err}")
+                
+    logger.info(f"Breakfast reminder dispatch complete. Sent to {sent_count} users, failed for {fail_count} users.")
+
 async def send_production_report_to_admins(bot: Bot):
     """Generates the morning report for today's deliveries and sends it to all admins."""
     today = datetime.date.today()
@@ -69,10 +125,11 @@ async def send_production_report_to_admins(bot: Bot):
         logger.error(f"Failed to fetch DB admin users for report: {db_fetch_err}")
 
 async def scheduler_loop(bot: Bot):
-    """Background task running continuously to trigger daily reports."""
+    """Background task running continuously to trigger daily reports and breakfast reminders."""
     logger.info("Automated scheduler background task started.")
     
     last_run_date = None
+    last_customer_run_date = None
     
     while True:
         try:
@@ -84,6 +141,12 @@ async def scheduler_loop(bot: Bot):
                 if last_run_date != today:
                     await send_production_report_to_admins(bot)
                     last_run_date = today
+                    
+            # Check if it's customer breakfast alert time and reminder wasn't run today yet
+            if now.hour == CUSTOMER_ALERT_HOUR and now.minute == CUSTOMER_ALERT_MINUTE:
+                if last_customer_run_date != today:
+                    await send_breakfast_reminder_to_customers(bot)
+                    last_customer_run_date = today
                     
             # Check every 30 seconds
             await asyncio.sleep(30)

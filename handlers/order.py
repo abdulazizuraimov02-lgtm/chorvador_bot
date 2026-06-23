@@ -57,14 +57,25 @@ async def back_to_products(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OrderStates.selecting_product)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("select_product:"), OrderStates.selecting_product)
+@router.callback_query(F.data.startswith("select_product:"))
 async def process_product_selection(callback: CallbackQuery, state: FSMContext):
+    telegram_id = callback.from_user.id
+    user = await models.get_user_by_telegram_id(telegram_id)
+    if not user:
+        await callback.answer("Buyurtma berish uchun avval ro'yxatdan o'tishingiz kerak. Iltimos, /start buyrug'ini bosing.", show_alert=True)
+        return
+        
     product_id = int(callback.data.split(":")[1])
     product = await models.get_product_by_id(product_id)
     
     if not product or not product['is_active']:
         await callback.answer("Kechirasiz, bu mahsulot hozirda sotuvda yo'q.", show_alert=True)
         return
+        
+    # Ensure cart is initialized in FSM context
+    state_data = await state.get_data()
+    if "cart" not in state_data:
+        await state.update_data(cart=[])
         
     await state.update_data(current_product_id=product_id, current_product_name=product['name'], current_product_price=float(product['price']))
     
