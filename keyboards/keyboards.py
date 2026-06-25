@@ -13,11 +13,15 @@ def get_location_keyboard() -> ReplyKeyboardMarkup:
 
 def get_main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="🛍️ Buyurtma berish"))
-    builder.add(KeyboardButton(text="📞 Bog‘lanish"))
     if is_admin:
+        # Admin faqat admin tugmalarini ko'radi
         builder.add(KeyboardButton(text="🔑 Admin Panel"))
-    # Clean 1-column layout
+    else:
+        # Oddiy mijoz menyusi
+        builder.add(KeyboardButton(text="🛒 Buyurtma berish"))
+        builder.add(KeyboardButton(text="📋 Mening buyurtmalarim"))
+        builder.add(KeyboardButton(text="👤 Profilim"))
+        builder.add(KeyboardButton(text="📞 Bog'lanish"))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True)
 
@@ -39,7 +43,6 @@ def get_quantity_keyboard(product_id: int) -> InlineKeyboardMarkup:
             callback_data=f"qty:{product_id}:{i}"
         ))
     builder.adjust(3)
-    # Add back button
     builder.row(InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_products"))
     return builder.as_markup()
 
