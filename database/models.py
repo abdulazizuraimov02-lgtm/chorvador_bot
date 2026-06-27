@@ -429,7 +429,7 @@ async def get_dashboard_orders(date_filter: str = None) -> List[Dict[str, Any]]:
         JOIN users u ON o.user_id = u.id
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.id
-        WHERE o.delivery_date = $1::date
+        WHERE o.delivery_date = $1
         GROUP BY o.id, u.id
         ORDER BY 
             CASE 

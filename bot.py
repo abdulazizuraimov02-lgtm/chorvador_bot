@@ -112,8 +112,10 @@ async def api_get_orders(request):
     if not is_authorized(request):
         return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
+        import datetime
         from database import models
-        date_filter = request.rel_url.query.get('date', None)
+        date_str = request.rel_url.query.get('date', None)
+        date_filter = datetime.date.fromisoformat(date_str) if date_str else datetime.date.today()
         orders = await models.get_dashboard_orders(date_filter=date_filter)
         return web.json_response(orders)
     except Exception as e:
