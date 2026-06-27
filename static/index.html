@@ -1429,7 +1429,7 @@ async function saveMiniappSettings() {
 }
 
 // ==================== ROUTING (OpenRouteService) ====================
-const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyZjA3OWRhOGFhOTRlYTliYjk5YjEzZGJjMGJmMThiIiwiaCI6Im11cm11cjY0In0='; // openrouteservice.org dan olingan kalit
+const ORS_API_KEY = 'YOUR_ORS_API_KEY'; // openrouteservice.org dan olingan kalit
 let routeLayer = null;
 let myPosition = null;
 
@@ -1438,7 +1438,7 @@ async function startRoute() {
   const status = document.getElementById('route-status');
 
   if (!mapOrders.length) {
-    showToast('Bugun yetkazish kerak bo'lgan buyurtma yo'q', 'error');
+    showToast('Bugun yetkazish kerak bo\u2019lgan buyurtma yo\u2019q', 'error');
     return;
   }
 
@@ -1469,7 +1469,7 @@ async function startRoute() {
   }, (err) => {
     btn.textContent = '🚗 Marshrutni boshlash';
     btn.disabled = false;
-    showToast('Joylashuvni aniqlab bo'lmadi', 'error');
+    showToast('Joylashuvni aniqlab bo\u2019lmadi', 'error');
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
@@ -1566,7 +1566,7 @@ function drawStraightRoute(start, orders) {
       iconSize: [22, 22], iconAnchor: [11, 11]
     });
   });
-  document.getElementById('route-status').textContent = '⚠️ API kalit yo'q — to'g'ri chiziq ko'rsatilmoqda';
+  document.getElementById('route-status').textContent = '\u26a0\ufe0f API kalit yo\u2019q \u2014 to\u2019g\u2019ri chiziq ko\u2019rsatilmoqda';
 }
 
 // ==================== AUTO LOGIN (if token saved) ====================
