@@ -354,6 +354,7 @@ input:checked + .toggle-slider::before { transform:translateX(18px); }
       <button class="nav-item" onclick="navigate('payments',this)"><span class="icon">💰</span> To'lovlar</button>
       <button class="nav-item" onclick="navigate('map',this)"><span class="icon">🗺️</span> Yetkazish xaritasi</button>
       <button class="nav-item" onclick="navigate('miniapp',this)"><span class="icon">📱</span> Mini App</button>
+      <button class="nav-item" onclick="navigate('settings',this)"><span class="icon">⏰</span> Eslatma sozlamalari</button>
     </nav>
     <div class="sidebar-footer">
       <div style="font-size:11px;color:var(--muted);text-align:center;" id="sidebar-time">--:--</div>
@@ -471,6 +472,21 @@ input:checked + .toggle-slider::before { transform:translateX(18px); }
             </div>
           </div>
           <div class="form-group">
+            <label class="form-label">Media turi (ixtiyoriy)</label>
+            <div class="option-grid" style="grid-template-columns:1fr 1fr 1fr;display:grid;gap:8px">
+              <button class="filter-btn active" onclick="setBroadcastMedia('none',this)" id="bm-none">📝 Faqat matn</button>
+              <button class="filter-btn" onclick="setBroadcastMedia('photo',this)" id="bm-photo">🖼️ Rasm</button>
+              <button class="filter-btn" onclick="setBroadcastMedia('video',this)" id="bm-video">🎬 Video</button>
+            </div>
+          </div>
+          <div class="form-group" id="broadcast-media-url-group" style="display:none">
+            <label class="form-label">Fayl tanlang</label>
+            <input type="file" accept="image/*,video/*" id="broadcast-media-file" style="display:none" onchange="uploadBroadcastMedia(this)">
+            <button class="btn-cancel" style="width:100%" onclick="document.getElementById('broadcast-media-file').click()">📁 Fayl tanlash</button>
+            <div id="broadcast-media-preview" style="margin-top:8px"></div>
+            <input type="hidden" id="broadcast-media-url">
+          </div>
+          <div class="form-group">
             <label class="form-label">Xabar matni</label>
             <textarea class="form-textarea" id="broadcast-text" placeholder="Xabar yozing... (Telegram Markdown qo'llab-quvvatlanadi)" oninput="updatePreview()"></textarea>
           </div>
@@ -583,6 +599,50 @@ input:checked + .toggle-slider::before { transform:translateX(18px); }
         </div>
       </div>
 
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="miniapp-editor">
+          <div class="miniapp-section">
+            <div class="miniapp-section-title">⏰ Mijozlarga avtomatik eslatma</div>
+            <div class="miniapp-settings-row">
+              <span>Yuborish vaqti</span>
+              <div style="display:flex;gap:4px">
+                <input type="number" class="miniapp-input" id="set-reminder-hour" min="0" max="23" style="width:60px" placeholder="Soat">
+                <span style="align-self:center">:</span>
+                <input type="number" class="miniapp-input" id="set-reminder-minute" min="0" max="59" style="width:60px" placeholder="Daqiqa">
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:14px">
+              <label class="form-label">Xabar matni</label>
+              <textarea class="form-textarea" id="set-reminder-text" style="min-height:90px"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rasm (ixtiyoriy)</label>
+              <input type="file" accept="image/*" id="set-reminder-photo-file" style="display:none" onchange="uploadReminderPhoto(this)">
+              <button class="btn-cancel" style="width:100%" onclick="document.getElementById('set-reminder-photo-file').click()">📁 Rasm tanlash</button>
+              <div id="set-reminder-photo-preview" style="margin-top:8px"></div>
+              <input type="hidden" id="set-reminder-photo">
+            </div>
+            <button class="miniapp-save-btn" onclick="saveReminderSettings()">💾 Eslatmani saqlash</button>
+          </div>
+          <div class="miniapp-section">
+            <div class="miniapp-section-title">🏭 Admin uchun kunlik hisobot</div>
+            <div class="miniapp-settings-row">
+              <span>Yuborish vaqti</span>
+              <div style="display:flex;gap:4px">
+                <input type="number" class="miniapp-input" id="set-report-hour" min="0" max="23" style="width:60px" placeholder="Soat">
+                <span style="align-self:center">:</span>
+                <input type="number" class="miniapp-input" id="set-report-minute" min="0" max="59" style="width:60px" placeholder="Daqiqa">
+              </div>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6">
+              Bu vaqtda barcha adminlarga shu kuni yetkazilishi kerak bo'lgan mahsulotlar ro'yxati avtomatik yuboriladi.
+            </p>
+            <button class="miniapp-save-btn" onclick="saveReportSettings()">💾 Hisobot vaqtini saqlash</button>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 <div class="mobile-nav">
@@ -591,7 +651,8 @@ input:checked + .toggle-slider::before { transform:translateX(18px); }
     <button class="mobile-nav-item" id="mnav-orders" onclick="navigate('orders',null);mobileNav('orders')" style="position:relative"><span class="micon">📦</span>Buyurtmalar<span class="mobile-nav-badge" id="mnav-badge" style="display:none">0</span></button>
     <button class="mobile-nav-item" id="mnav-map" onclick="navigate('map',null);mobileNav('map')"><span class="micon">🗺️</span>Xarita</button>
     <button class="mobile-nav-item" id="mnav-miniapp" onclick="navigate('miniapp',null);mobileNav('miniapp')"><span class="micon">📱</span>Mini App</button>
-    <button class="mobile-nav-item" id="mnav-payments" onclick="navigate('payments',null);mobileNav('payments')"><span class="micon">💰</span>To'lovlar</button>
+    <button class="mobile-nav-item" id="mnav-payments" onclick="navigate('payments',null);mobileNav('payments')"><span class="micon">💰</span>To\'lovlar</button>
+    <button class="mobile-nav-item" id="mnav-settings" onclick="navigate('settings',null);mobileNav('settings')"><span class="micon">⏰</span>Eslatma</button>
   </div>
 </div>
 </div><!-- /app -->
@@ -714,7 +775,7 @@ function navigate(page, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.getElementById('page-' + page).classList.add('active');
-  const titles = { dashboard:'Statistika', orders:'Buyurtmalar', products:'Mahsulotlar', customers:'Mijozlar', broadcast:'Xabar yuborish', payments:'To\'lovlar', map:'🗺️ Yetkazish xaritasi', miniapp:'📱 Mini App' };
+  const titles = { dashboard:'Statistika', orders:'Buyurtmalar', products:'Mahsulotlar', customers:'Mijozlar', broadcast:'Xabar yuborish', payments:'To\'lovlar', map:'🗺️ Yetkazish xaritasi', miniapp:'📱 Mini App', settings:'⏰ Eslatma sozlamalari' };
   document.getElementById('page-title').textContent = titles[page] || page;
   if (page === 'orders') loadOrders();
   if (page === 'products') loadProducts();
@@ -723,6 +784,7 @@ function navigate(page, btn) {
   if (page === 'payments') loadPayments();
   if (page === 'map') { initMap(); setTimeout(() => { if(mapInstance) mapInstance.invalidateSize(); }, 300); }
   if (page === 'miniapp') loadMiniappEditor();
+  if (page === 'settings') loadSettingsPage();
 }
 
 // ==================== DASHBOARD ====================
@@ -1128,22 +1190,50 @@ async function loadBroadcastInfo() {
   }
 }
 
+let broadcastMediaType = 'none';
+
+function setBroadcastMedia(type, btn) {
+  broadcastMediaType = type;
+  document.querySelectorAll('#bm-none,#bm-photo,#bm-video').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('broadcast-media-url-group').style.display = type === 'none' ? 'none' : 'block';
+  updatePreview();
+}
+
 function updatePreview() {
   const text = document.getElementById('broadcast-text').value;
-  document.getElementById('broadcast-preview').textContent = text || 'Xabar yozing...';
+  const mediaUrl = document.getElementById('broadcast-media-url')?.value;
+  let preview = text || 'Xabar yozing...';
+  if (broadcastMediaType !== 'none' && mediaUrl) {
+    const icon = broadcastMediaType === 'photo' ? '🖼️' : '🎬';
+    preview = `${icon} [${broadcastMediaType === 'photo' ? 'Rasm' : 'Video'} biriktirilgan]\n\n` + preview;
+  }
+  document.getElementById('broadcast-preview').textContent = preview;
 }
 
 async function sendBroadcast() {
   const text = document.getElementById('broadcast-text').value.trim();
-  if (!text) { showToast('Xabar matni bo\'sh!', 'error'); return; }
+  const mediaUrl = document.getElementById('broadcast-media-url')?.value.trim() || '';
+
+  if (!text && !mediaUrl) { showToast('Xabar matni yoki media kiriting!', 'error'); return; }
+  if (broadcastMediaType !== 'none' && !mediaUrl) { showToast('Media URL kiriting!', 'error'); return; }
+
   const btn = document.getElementById('send-btn');
   btn.disabled = true;
   document.getElementById('broadcast-status').textContent = 'Yuborilmoqda...';
-  const r = await api('/api/broadcast', 'POST', { text });
+
+  const payload = { text };
+  if (broadcastMediaType !== 'none' && mediaUrl) {
+    payload.media_url = mediaUrl;
+    payload.media_type = broadcastMediaType;
+  }
+
+  const r = await api('/api/broadcast', 'POST', payload);
   btn.disabled = false;
   if (r?.success) {
-    showToast(`${r.sent || ''} ta mijozga xabar yuborildi!`, 'success');
+    showToast((r.sent || 0) + ' ta mijozga xabar yuborildi!', 'success');
     document.getElementById('broadcast-text').value = '';
+    document.getElementById('broadcast-media-url').value = '';
     document.getElementById('broadcast-preview').textContent = 'Xabar yozing...';
     document.getElementById('broadcast-status').textContent = '';
   } else {
@@ -1413,6 +1503,98 @@ function updatePendingBadge() {
   if (badge) { badge.style.display = cnt > 0 ? '' : 'none'; badge.textContent = cnt; }
   const mbadge = document.getElementById('mnav-badge');
   if (mbadge) { mbadge.style.display = cnt > 0 ? '' : 'none'; mbadge.textContent = cnt; }
+}
+
+// ==================== FILE UPLOAD ====================
+async function uploadFile(fileInput, onSuccess) {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  if (file.size > 20 * 1024 * 1024) {
+    showToast('Fayl hajmi 20MB dan oshmasligi kerak!', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const r = await fetch(BASE + '/api/upload', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + TOKEN },
+      body: formData
+    });
+    const data = await r.json();
+    if (data.success) {
+      onSuccess(data.url, data.media_type, file.name);
+      showToast('Fayl yuklandi!', 'success');
+    } else {
+      showToast(data.error || 'Yuklashda xatolik', 'error');
+    }
+  } catch (e) {
+    showToast('Yuklashda xatolik yuz berdi', 'error');
+  }
+}
+
+async function uploadReminderPhoto(input) {
+  document.getElementById('set-reminder-photo-preview').innerHTML = '<div class="loader" style="padding:10px"><div class="spinner"></div> Yuklanmoqda...</div>';
+  await uploadFile(input, (url, type, name) => {
+    document.getElementById('set-reminder-photo').value = url;
+    document.getElementById('set-reminder-photo-preview').innerHTML =
+      `<img src="${url}" style="max-width:100%;max-height:150px;border-radius:8px;display:block;margin-top:4px"> <div style="font-size:11px;color:var(--muted);margin-top:4px">✓ ${esc(name)}</div>`;
+  });
+}
+
+async function uploadBroadcastMedia(input) {
+  document.getElementById('broadcast-media-preview').innerHTML = '<div class="loader" style="padding:10px"><div class="spinner"></div> Yuklanmoqda...</div>';
+  await uploadFile(input, (url, type, name) => {
+    document.getElementById('broadcast-media-url').value = url;
+    broadcastMediaType = type;
+    let preview = type === 'photo'
+      ? `<img src="${url}" style="max-width:100%;max-height:150px;border-radius:8px;display:block;margin-top:4px">`
+      : `<video src="${url}" style="max-width:100%;max-height:150px;border-radius:8px;display:block;margin-top:4px" controls></video>`;
+    document.getElementById('broadcast-media-preview').innerHTML = preview + `<div style="font-size:11px;color:var(--muted);margin-top:4px">✓ ${esc(name)}</div>`;
+    updatePreview();
+  });
+}
+
+// ==================== SETTINGS PAGE ====================
+async function loadSettingsPage() {
+  const data = await api('/api/settings');
+  if (!data) return;
+  document.getElementById('set-reminder-hour').value = data.reminder_hour || '6';
+  document.getElementById('set-reminder-minute').value = data.reminder_minute || '0';
+  document.getElementById('set-reminder-text').value = data.reminder_text || '';
+  document.getElementById('set-reminder-photo').value = data.reminder_photo || '';
+  document.getElementById('set-report-hour').value = data.report_hour || '6';
+  document.getElementById('set-report-minute').value = data.report_minute || '0';
+
+  if (data.reminder_photo) {
+    document.getElementById('set-reminder-photo-preview').innerHTML =
+      `<img src="${data.reminder_photo}" style="max-width:100%;max-height:150px;border-radius:8px;display:block;margin-top:4px">`;
+  }
+}
+
+async function saveReminderSettings() {
+  const payload = {
+    reminder_hour: document.getElementById('set-reminder-hour').value || '6',
+    reminder_minute: document.getElementById('set-reminder-minute').value || '0',
+    reminder_text: document.getElementById('set-reminder-text').value,
+    reminder_photo: document.getElementById('set-reminder-photo').value
+  };
+  const r = await api('/api/settings', 'POST', payload);
+  if (r?.success) showToast('Eslatma sozlamalari saqlandi!', 'success');
+  else showToast('Xatolik yuz berdi', 'error');
+}
+
+async function saveReportSettings() {
+  const payload = {
+    report_hour: document.getElementById('set-report-hour').value || '6',
+    report_minute: document.getElementById('set-report-minute').value || '0'
+  };
+  const r = await api('/api/settings', 'POST', payload);
+  if (r?.success) showToast('Hisobot vaqti saqlandi!', 'success');
+  else showToast('Xatolik yuz berdi', 'error');
 }
 
 // ==================== MINIAPP EDITOR ====================

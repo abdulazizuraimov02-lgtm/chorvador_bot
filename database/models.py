@@ -69,6 +69,30 @@ async def create_tables():
         );
     """)
 
+    # 6. settings table — scheduler vaqti va xabar matnini saqlash uchun
+    await execute_query("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key VARCHAR(100) PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+    """)
+
+    # Default sozlamalar
+    default_settings = {
+        'reminder_hour': '6',
+        'reminder_minute': '0',
+        'reminder_text': "☀️ Xayrli tong!\n\nBugun nonushtaga nima buyurtma qilasiz? 🥛🧀🍞\nQuyidagi mahsulotlardan birini tanlab buyurtma berishingiz mumkin:",
+        'reminder_photo': '',
+        'report_hour': '6',
+        'report_minute': '0',
+    }
+    for k, v in default_settings.items():
+        await execute_query(
+            "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING;",
+            k, v
+        )
+
     logger.info("Tables checked/created successfully.")
     
     # Insert default branch if empty
@@ -334,6 +358,24 @@ async def get_undelivered_orders() -> List[Dict[str, Any]]:
             row_dict['total_price'] = float(row_dict['total_price'])
         result.append(row_dict)
     return result
+
+async def get_setting(key: str, default: str = None) -> Optional[str]:
+    """Bitta sozlamani olish."""
+    row = await fetch_row("SELECT value FROM settings WHERE key = $1;", key)
+    return row['value'] if row else default
+
+async def get_all_settings() -> Dict[str, str]:
+    """Barcha sozlamalarni dict sifatida olish."""
+    rows = await fetch_rows("SELECT key, value FROM settings;")
+    return {r['key']: r['value'] for r in rows}
+
+async def set_setting(key: str, value: str):
+    """Bitta sozlamani yangilash yoki yaratish."""
+    await execute_query(
+        """INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+           ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW();""",
+        key, value
+    )
 
 async def get_dashboard_stats() -> Dict[str, Any]:
     """Retrieves analytical statistics for the web admin dashboard."""

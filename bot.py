@@ -270,6 +270,83 @@ async def api_get_customers(request):
         logger.error(f"api_get_customers: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+# --- FILE UPLOAD (rasm/video) ---
+
+async def api_upload_file(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        import uuid
+        reader = await request.multipart()
+        field = await reader.next()
+        if field is None or field.name != 'file':
+            return web.json_response({"error": "Fayl topilmadi!"}, status=400)
+
+        filename = field.filename or 'file'
+        ext = os.path.splitext(filename)[1].lower()
+        allowed_ext = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov', '.avi']
+        if ext not in allowed_ext:
+            return web.json_response({"error": "Fayl turi qo'llab-quvvatlanmaydi!"}, status=400)
+
+        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+        os.makedirs(uploads_dir, exist_ok=True)
+
+        unique_name = f"{uuid.uuid4().hex}{ext}"
+        filepath = os.path.join(uploads_dir, unique_name)
+
+        size = 0
+        max_size = 20 * 1024 * 1024  # 20 MB
+        with open(filepath, 'wb') as f:
+            while True:
+                chunk = await field.read_chunk(1024 * 64)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_size:
+                    f.close()
+                    os.remove(filepath)
+                    return web.json_response({"error": "Fayl hajmi 20MB dan oshmasligi kerak!"}, status=400)
+                f.write(chunk)
+
+        base_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+        file_url = f"{base_url}/static/uploads/{unique_name}"
+        media_type = 'video' if ext in ['.mp4', '.mov', '.avi'] else 'photo'
+
+        logger.info(f"File uploaded: {unique_name} ({size} bytes)")
+        return web.json_response({"success": True, "url": file_url, "media_type": media_type})
+    except Exception as e:
+        logger.error(f"api_upload_file: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+# --- SETTINGS (scheduler vaqti va xabar matni) ---
+
+async def api_get_settings(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        settings = await models.get_all_settings()
+        return web.json_response(settings)
+    except Exception as e:
+        logger.error(f"api_get_settings: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_save_settings(request):
+    if not is_authorized(request):
+        return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
+    try:
+        from database import models
+        data = await request.json()
+        allowed_keys = ['reminder_hour', 'reminder_minute', 'reminder_text', 'reminder_photo', 'report_hour', 'report_minute']
+        for key in allowed_keys:
+            if key in data:
+                await models.set_setting(key, str(data[key]))
+        logger.info(f"Settings updated: {list(data.keys())}")
+        return web.json_response({"success": True})
+    except Exception as e:
+        logger.error(f"api_save_settings: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
 # --- BROADCAST ---
 
 async def api_broadcast(request):
@@ -277,20 +354,39 @@ async def api_broadcast(request):
         return web.json_response({"error": "Ruxsat yo'q!"}, status=401)
     try:
         from database import models
+        from aiogram.types import URLInputFile
         data = await request.json()
         text = data.get("text", "").strip()
-        if not text:
-            return web.json_response({"error": "Xabar matni bo'sh!"}, status=400)
+        media_url = data.get("media_url", "").strip()
+        media_type = data.get("media_type", "")  # 'photo' yoki 'video'
+
+        if not text and not media_url:
+            return web.json_response({"error": "Xabar matni yoki media bo'sh!"}, status=400)
 
         users = await models.get_all_users()
         sent, failed = 0, 0
         for user in users:
             try:
-                await bot.send_message(
-                    chat_id=user['telegram_id'],
-                    text=text,
-                    parse_mode="Markdown"
-                )
+                if media_url and media_type == 'photo':
+                    await bot.send_photo(
+                        chat_id=user['telegram_id'],
+                        photo=URLInputFile(media_url),
+                        caption=text or None,
+                        parse_mode="Markdown"
+                    )
+                elif media_url and media_type == 'video':
+                    await bot.send_video(
+                        chat_id=user['telegram_id'],
+                        video=URLInputFile(media_url),
+                        caption=text or None,
+                        parse_mode="Markdown"
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=user['telegram_id'],
+                        text=text,
+                        parse_mode="Markdown"
+                    )
                 sent += 1
                 await asyncio.sleep(0.05)  # Telegram rate limit
             except Exception as err:
@@ -489,6 +585,13 @@ async def start_web_server():
 
     # Broadcast
     app.router.add_post('/api/broadcast', api_broadcast)
+
+    # Settings (scheduler vaqti, xabar matni)
+    app.router.add_get('/api/settings', api_get_settings)
+    app.router.add_post('/api/settings', api_save_settings)
+
+    # File upload (rasm/video)
+    app.router.add_post('/api/upload', api_upload_file)
 
     # Yetkazilmagan buyurtmalar
     app.router.add_get('/api/orders/undelivered', api_get_undelivered_orders)
