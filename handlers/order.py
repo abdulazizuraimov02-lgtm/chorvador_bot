@@ -155,7 +155,7 @@ async def show_cart(message: Message, state: FSMContext):
         qty_unit = "dona" if item['name'] == "Malako" else "kg"
         item_total = Decimal(str(item['quantity'])) * Decimal(str(item['price']))
         total_price += item_total
-        text += f"🔸 **{item['name']}**: {item['quantity']} {qty_unit} x {int(item['price']):,} so'm = {int(item_total):,} so'm\n"
+        text += f"**{item['name']}**: {item['quantity']} {qty_unit} x {int(item['price']):,} so'm = {int(item_total):,} so'm\n"
         
     text += f"\n💵 **Jami summa:** {int(total_price):,} so'm\n\n".replace(",", " ")
     text += "Yana mahsulot qo'shmoqchimisiz yoki buyurtmani tasdiqlaysizmi?"
