@@ -449,7 +449,21 @@ async def api_miniapp_order(request):
             )
 
         import datetime
-        delivery_date = datetime.date.fromisoformat(delivery_date_str) if delivery_date_str else datetime.date.today()
+        tz_uz = datetime.timezone(datetime.timedelta(hours=5))
+        now_uz = datetime.datetime.now(tz_uz)
+        today_uz = now_uz.date()
+        current_hour = now_uz.hour
+
+        delivery_date = datetime.date.fromisoformat(delivery_date_str) if delivery_date_str else today_uz
+
+        # Bugun uchun buyurtmalarda vaqt cheklovlarini tekshirish (Toshkent vaqti bilan)
+        if delivery_date == today_uz:
+            if delivery_time_start < "12:00" and current_hour >= 8:
+                return web.json_response({"error": "Bugun uchun ertalabki vaqtga buyurtma olish yopilgan (soat 08:00 dan o'tgan)!"}, status=400)
+            if "12:00" <= delivery_time_start < "18:00" and current_hour >= 12:
+                return web.json_response({"error": "Bugun uchun tushlik vaqtiga buyurtma olish yopilgan (soat 12:00 dan o'tgan)!"}, status=400)
+            if delivery_time_start >= "18:00" and current_hour >= 18:
+                return web.json_response({"error": "Bugun uchun kechqurungi vaqtga buyurtma olish yopilgan (soat 18:00 dan o'tgan)!"}, status=400)
 
         cart_items = [
             {
