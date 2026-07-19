@@ -669,6 +669,18 @@ async def main():
         await init_db_pool()
         await models.create_tables()
         await start_web_server()
+        try:
+            await bot.set_description(
+                "Chorvador botiga xush kelibsiz!\n\n"
+                "Bu bot orqali siz tabiiy va sifatli sut hamda sut mahsulotlariga (sut, qatiq, suzma, pishloq, sariyog' va boshqalar) uyingizdan turib buyurtma berishingiz mumkin. Biz esa yetkazib beramiz.\n"
+                "Buyurtma berish uchun botni ishga tushiring!"
+            )
+            await bot.set_short_description(
+                "Tabiiy sut mahsulotlarini uyingizga yetkazib berish boti"
+            )
+            logger.info("Bot ta'rifi (description) muvaffaqiyatli yangilandi.")
+        except Exception as desc_err:
+            logger.warning(f"Bot ta'rifini yangilashda xatolik (token noto'g'ri bo'lishi mumkin): {desc_err}")
     except Exception as e:
         logger.error(f"Web server xatosi: {e}")
 
